@@ -1,0 +1,4 @@
+[submodule "simpleMDMpy-magervalp"]
+	path = simpleMDMpy-magervalp
+	url = https://github.com/MagerValp/simpleMDMpy.git
+	branch = scripts
