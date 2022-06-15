@@ -10,6 +10,8 @@ sys.path.append("simpleMDMpy-magervalp")
 import SimpleMDMpy
 import os
 import time
+import socket
+import functools
 
 
 # Wrap the SimpleMDMpy class to avoid sprinkling api_key everywhere.
@@ -180,6 +182,88 @@ def create_job(args):
     return 0
 
 
+### Execute commands on devices
+
+@functools.cache
+def get_device_name(device_id):
+    try:
+        return MDM.Devices.get_device(device_id)["attributes"]["name"]
+    except:
+        return None
+
+def execute_script(args):
+    if not any([args.devices, args.groups, args.assignment_groups]):
+        print(f"Must provide either devices, groups, or assignment groups", file=stderr)
+        return os.EX_USAGE
+    device_ids = parse_device_list(args.devices)
+    group_ids = parse_id_list(args.groups)
+    assignment_group_ids = parse_id_list(args.assignment_groups)
+
+    if args.command:
+        script_content = "#!" + args.interpreter + "\n\n" + args.script + "\n"
+    else:
+        try:
+            with open(args.script, "rt", encoding="utf-8") as f:
+                script_content = f.read()
+        except Exception as e:
+            print(f"Unable to read script: {e}", file=stderr)
+            return os.EX_NOINPUT
+    if not script_content.startswith("#!"):
+        print(f"Invalid script, must start with #!")
+        return os.EX_NOINPUT
+
+    script_name = "_".join([
+        "tmp_exec",
+        os.getlogin(),
+        socket.gethostname(),
+        time.strftime("%Y%m%d_%H%M%S"),
+    ])
+    script = MDM.Scripts.create_script(script_name, False, script_content)
+    print_script(script)
+    script_id = script["id"]
+
+    try:
+        job = MDM.ScriptJobs.create_job(script_id, device_ids, group_ids, assignment_group_ids)
+        print_job(job)
+        job_id = job["id"]
+
+        printed = set()
+        while True:
+            time.sleep(5)
+            job = MDM.ScriptJobs.get_job(job_id)
+
+            for device in job["relationships"]["device"]["data"]:
+                device_id = device["id"]
+                device_status = device["status"]
+                if device_id in printed:
+                    continue
+                if device_status == "pending":
+                    continue
+                printed.add(device_id)
+
+                name = get_device_name(device_id) or Color.red("UNKNOWN")
+                print("\t".join([
+                    Color.blue("---"),
+                    str(device_id),
+                    name,
+                    color_device_status(device_status),
+                ]))
+                print(device["response"], end="")
+                if device["response"][-1] != "\n":
+                    print("")
+                print(f"{Color.blue('---')}")
+
+            job_status = job["attributes"]["status"]
+            if job_status != "pending":
+                print(color_job_status(job_status))
+                if job_status == "completed":
+                    return 0
+                else:
+                    return 1
+    finally:
+        MDM.Scripts.delete_script(script_id)
+
+
 ### Wait for job to finish
 
 def wait_job(args):
@@ -228,6 +312,15 @@ def main(argv):
     p_run.add_argument("--groups", "-g", help="Comma separated list of groups")
     p_run.add_argument("--assignment-groups", "-a", help="Comma separated list of assignment groups")
     p_run.set_defaults(func=create_job)
+    
+    p_exec = sp.add_parser("exec", help="Execute commands on devices")
+    p_exec.add_argument("--command", "-c", action="store_true", help="Run script passed in as string")
+    p_exec.add_argument("--interpreter", "-i", default="/bin/bash", help="Script interpreter, default is /bin/bash")
+    p_exec.add_argument("--devices", "-d", help="Comma separated list of devices")
+    p_exec.add_argument("--groups", "-g", help="Comma separated list of groups")
+    p_exec.add_argument("--assignment-groups", "-a", help="Comma separated list of assignment groups")
+    p_exec.add_argument("script")
+    p_exec.set_defaults(func=execute_script)
     
     p_wait = sp.add_parser("wait", help="Wait for job to finish")
     p_wait.add_argument("id", help="ID")
