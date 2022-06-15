@@ -235,7 +235,11 @@ def main(argv):
     
     try:
         args = p.parse_args(argv[1:])
-        return args.func(args) or 0
+        try:
+            return args.func(args) or 0
+        except AttributeError:
+            p.print_help()
+            return os.EX_USAGE
     except SimpleMDMpy.SimpleMDM.ApiError as e:
         print(f"Api call failed: {e}", file=sys.stderr)
         return os.EX_UNAVAILABLE
