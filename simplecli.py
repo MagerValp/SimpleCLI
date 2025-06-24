@@ -67,6 +67,7 @@ def color_job_status(status):
     return {
         "pending": Color.cyan(status),
         "completed-with-errors": Color.red(status),
+        "partially-completed": Color.cyan(status),
         "completed": Color.green(status),
         "cancelled": Color.yellow(status),
     }.get(status, status)
@@ -99,9 +100,12 @@ def print_job(job, verbose=False, print_response=False, print_source=False):
             ]))
         if print_response:
             print(f"{Color.blue('Response:')}")
-            print(device["response"], end="")
-            if device["response"][-1] != "\n":
-                print("")
+            if device["response"] is None:
+                print(Color.red("No response"))
+            else:
+                print(device["response"], end="")
+                if device["response"][-1] != "\n":
+                    print("")
             print(f"{Color.blue('---')}")
     if print_source:
         print(f"{Color.blue('Variable Support')} {Color.green('YES') if attrs['variable_support'] else Color.red('NO')}")
@@ -254,7 +258,7 @@ def execute_script(args):
                 print(f"{Color.blue('---')}")
 
             job_status = job["attributes"]["status"]
-            if job_status != "pending":
+            if job_status not in ["pending", "partially-completed"]:
                 print(color_job_status(job_status))
                 if job_status == "completed":
                     return 0
@@ -275,7 +279,7 @@ def wait_job(args):
     while True:
         job = MDM.ScriptJobs.get_job(job_id)
         print_job(job)
-        if job["attributes"]["status"] == "pending":
+        if job["attributes"]["status"] in ["pending", "partially-completed"]:
             time.sleep(5)
             for _ in range(5):
                 print(f"{ansi_line_up(1)}{ANSI_ERASE_EOL}", end="")

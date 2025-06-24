@@ -24,7 +24,7 @@ class Color(object):
     @classmethod
     def colorescape(cls, fg, bg=None):
         if bg is not None:
-            return f"\x1b[38;5;{fg}m\x1b[48;5;{gg}m"
+            return f"\x1b[38;5;{fg}m\x1b[48;5;{bg}m"
         else:
             return f"\x1b[38;5;{fg}m"
     
