@@ -9,7 +9,6 @@
 # -*- coding: utf-8 -*-
 
 
-import io
 import sys
 import argparse
 
@@ -19,6 +18,8 @@ import os
 import time
 import socket
 import functools
+
+from color import Color
 
 
 # Wrap the SimpleMDMpy class to avoid sprinkling api_key everywhere.
@@ -32,11 +33,6 @@ class MDM:
     Scripts = SimpleMDMpy.Scripts(api_key)
     ScriptJobs = SimpleMDMpy.ScriptJobs(api_key)
 
-
-import pprint
-
-
-from color import Color
 
 ANSI_ERASE_EOL = "\x1b[K"
 def ansi_line_up(num_lines):
@@ -98,7 +94,7 @@ def print_job(job, verbose=False, print_response=False, print_source=False):
         for device in job["relationships"]["device"]["data"]:
             try:
                 name = MDM.Devices.get_device(device["id"])["attributes"]["name"]
-            except:
+            except Exception:
                 name = Color.red("UNKNOWN")
             print("\t".join([
                 str(device['id']),
@@ -141,7 +137,7 @@ def create_script(args):
         with open(args.path, "rt", encoding="utf-8") as f:
             script_content = f.read()
     except Exception as e:
-        print(f"Unable to read script: {e}", file=stderr)
+        print(f"Unable to read script: {e}", file=sys.stderr)
         return os.EX_NOINPUT
     script = MDM.Scripts.create_script(args.name, args.variable_support, script_content)
     print_script(script)
@@ -180,7 +176,7 @@ def parse_id_list(arg):
 
 def create_job(args):
     if not any([args.devices, args.groups, args.assignment_groups]):
-        print(f"Must provide either devices, groups, or assignment groups", file=stderr)
+        print("Must provide either devices, groups, or assignment groups", file=sys.stderr)
         return os.EX_USAGE
     device_ids = parse_device_list(args.devices)
     group_ids = parse_id_list(args.groups)
@@ -199,12 +195,12 @@ def create_job(args):
 def get_device_name(device_id):
     try:
         return MDM.Devices.get_device(device_id)["attributes"]["name"]
-    except:
+    except Exception:
         return None
 
 def execute_script(args):
     if not any([args.devices, args.groups, args.assignment_groups]):
-        print(f"Must provide either devices, groups, or assignment groups", file=stderr)
+        print("Must provide either devices, groups, or assignment groups", file=sys.stderr)
         return os.EX_USAGE
     device_ids = parse_device_list(args.devices)
     group_ids = parse_id_list(args.groups)
@@ -217,10 +213,10 @@ def execute_script(args):
             with open(args.script, "rt", encoding="utf-8") as f:
                 script_content = f.read()
         except Exception as e:
-            print(f"Unable to read script: {e}", file=stderr)
+            print(f"Unable to read script: {e}", file=sys.stderr)
             return os.EX_NOINPUT
     if not script_content.startswith("#!"):
-        print(f"Invalid script, must start with #!")
+        print("Invalid script, must start with #!")
         return os.EX_NOINPUT
 
     script_name = "_".join([
@@ -304,18 +300,18 @@ def main(argv):
     p_listjobs.add_argument("--print-source", "-p", action="store_true")
     p_listjobs.add_argument("id", default="all", nargs="?")
     p_listjobs.set_defaults(func=list_jobs)
-    
+
     p_listscripts = sp.add_parser("listscripts", aliases=["ls"], help="List scripts")
     p_listscripts.add_argument("--print-source", "-p", action="store_true")
     p_listscripts.add_argument("id", default="all", nargs="?")
     p_listscripts.set_defaults(func=list_scripts)
-    
+
     p_upload = sp.add_parser("upload", help="Upload a script")
     p_upload.add_argument("name", help="The name of the script")
     p_upload.add_argument("--variable-support", "-v", action="store_true", help="Enable variable support")
     p_upload.add_argument("path", help="Path to a script to upload")
     p_upload.set_defaults(func=create_script)
-    
+
     p_run = sp.add_parser("run", help="Run a script on devices")
     p_run.add_argument("--wait", "-w", action="store_true", help="Wait for job to finish")
     p_run.add_argument("script_id", type=int, help="Script ID")
@@ -323,7 +319,7 @@ def main(argv):
     p_run.add_argument("--groups", "-g", help="Comma separated list of groups")
     p_run.add_argument("--assignment-groups", "-a", help="Comma separated list of assignment groups")
     p_run.set_defaults(func=create_job)
-    
+
     p_exec = sp.add_parser("exec", help="Execute commands on devices")
     p_exec.add_argument("--command", "-c", action="store_true", help="Run script passed in as string")
     p_exec.add_argument("--interpreter", "-i", default="/bin/bash", help="Script interpreter, default is /bin/bash")
@@ -332,11 +328,11 @@ def main(argv):
     p_exec.add_argument("--assignment-groups", "-a", help="Comma separated list of assignment groups")
     p_exec.add_argument("script")
     p_exec.set_defaults(func=execute_script)
-    
+
     p_wait = sp.add_parser("wait", help="Wait for job to finish")
     p_wait.add_argument("id", help="ID")
     p_wait.set_defaults(func=wait_job)
-    
+
     try:
         args = p.parse_args(argv[1:])
         try:
@@ -356,4 +352,3 @@ def main(argv):
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
-
