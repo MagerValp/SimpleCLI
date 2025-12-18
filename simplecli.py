@@ -72,6 +72,7 @@ def color_job_status(status):
         "completed-with-errors": Color.red(status),
         "partially-completed": Color.cyan(status),
         "completed": Color.green(status),
+        "expired": Color.yellow(status),
         "cancelled": Color.yellow(status),
     }.get(status, status)
 
@@ -80,6 +81,7 @@ def color_device_status(status):
         "completed": Color.green(status),
         "pending": Color.cyan(status),
         "error": Color.red(status),
+        "expired": Color.yellow(status),
         "cancelled": Color.yellow(status),
     }.get(status, status)
 
