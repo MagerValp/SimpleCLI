@@ -4,9 +4,10 @@
 # dependencies = [
 #     "requests",
 # ]
+# [tool.uv]
+# exclude-newer = "7 days"
 # ///
 
-# -*- coding: utf-8 -*-
 
 
 import sys
